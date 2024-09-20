@@ -24,9 +24,17 @@ void movePlayer(unsigned char key);
 
 void timer(int);
 
+void calculAlpha();
+
+void playerInMap(int x, int y);
+
 const int WINDOW_WIDTH = 500;
 const int WINDOW_HEIGHT = 500;
 const double PLAYER_SPEED = 3;
+
+int heightMap = 5;
+int widthMap = 5;
+int unite = 100;
 
 int map[5][5] = {
     {1, 1, 1, 1, 1},
@@ -35,9 +43,6 @@ int map[5][5] = {
     {1, 0, 0, 0, 1},
     {1, 1, 1, 1, 1}
 };
-int heightMap = 5;
-int widthMap = 5;
-int unite = 100;
 
 struct Coordonnee {
     double x;
@@ -47,6 +52,8 @@ struct Coordonnee {
 struct View {
     int x;
     int y;
+    double cosA;
+    double sinA;
 };
 
 struct Vecteur {
@@ -56,11 +63,14 @@ struct Vecteur {
 
 struct Coordonnee joueur = {150, 150};
 
-struct View lVision = {150, 0};
+struct Coordonnee posMap = {1, 1};
+
+struct View lVision = {150, 0, 90, 0};
 
 struct Vecteur vecteurDirectionnel = {0, 0};
 
 int main(int argc, char *argv[]) {
+    calculAlpha();
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
 
@@ -153,16 +163,17 @@ void keyPressed(const unsigned char key, int x, int y) {
         case 'z':
         case 's':
             movePlayer(key);
+            break;
         case 'q':
         case 'd':
             changePVision(key);
             break;
         default:
-
-
-
     }
+    playerInMap(joueur.x, joueur.y);
     glutPostRedisplay();
+    printf("Joueur -> x: %f, y: %f\n", joueur.x, joueur.y);
+    printf("Position dans la carte -> x: %d, y: %d\n\n", posMap.x, posMap.y);
 }
 
 void timer(int) {
@@ -172,13 +183,12 @@ void timer(int) {
 
 //TODO
 void movePlayer(unsigned char key) {
-    vecteurDirectionnel.x = lVision.x - joueur.x;
-    vecteurDirectionnel.y = lVision.y - joueur.y;
-    const int alpha = atan2(vecteurDirectionnel.y, vecteurDirectionnel.x);
     if (key == 'z') {
-        joueur.x = joueur.x + cos(alpha) * PLAYER_SPEED;
-        joueur.y = joueur.y + sin(alpha) * PLAYER_SPEED;
+        joueur.x += lVision.cosA * PLAYER_SPEED;
+        joueur.y += lVision.sinA * PLAYER_SPEED;
     } else {
+        joueur.x -= lVision.cosA * PLAYER_SPEED;
+        joueur.y -= lVision.sinA * PLAYER_SPEED;
     }
 }
 
@@ -215,6 +225,23 @@ void changePVision(const unsigned char key) {
     if (lVision.y <= 0) {
         lVision.y = 0;
     }
+    calculAlpha();
+}
+
+void calculAlpha() {
+    int vectorX = lVision.x - joueur.x;
+    int vectorY = lVision.y - joueur.y;
+    float hypoLenght = sqrt(vectorX * vectorX + vectorY * vectorY);
+    if (hypoLenght == 0)
+        hypoLenght = 1;
+    lVision.cosA = vectorX / hypoLenght;
+    lVision.sinA = vectorY / hypoLenght;
+}
+
+void playerInMap(int x, int y) {
+    printf("posMap x = %d , posMapy = %d", posMap.x, posMap.y);
+    posMap.x = (x - (x % 100) + 1) / 100;
+    posMap.y = (y - (y % 100) + 1) / 100;
 }
 
 //TODO for 3D
