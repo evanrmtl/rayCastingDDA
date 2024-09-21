@@ -4,46 +4,6 @@
 #include <GL/glut.h>
 #include <math.h>
 
-void display();
-
-void init();
-
-void reshape(int, int);
-
-void displayMap(int map[5][5]);
-
-void displayGrid();
-
-void displayPlayer();
-
-void keyPressed(unsigned char, int, int);
-
-void changePVision(unsigned char key);
-
-void movePlayer(unsigned char key);
-
-void timer(int);
-
-void calculAlpha();
-
-void playerInMap(int x, int y);
-
-const int WINDOW_WIDTH = 500;
-const int WINDOW_HEIGHT = 500;
-const double PLAYER_SPEED = 3;
-
-int heightMap = 5;
-int widthMap = 5;
-int unite = 100;
-
-int map[5][5] = {
-    {1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 1},
-    {1, 0, 1, 0, 1},
-    {1, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1}
-};
-
 struct Coordonnee {
     double x;
     double y;
@@ -61,16 +21,81 @@ struct Vecteur {
     int y;
 };
 
-struct Coordonnee joueur = {150, 150};
+struct PlayerMapPosition {
+    int x;
+    int y;
+};
 
-struct Coordonnee posMap = {1, 1};
+void display();
 
-struct View lVision = {150, 0, 90, 0};
+void init();
+
+void reshape(int, int);
+
+void displayMap(int map[5][5]);
+
+void displayGrid();
+
+void displayPlayer();
+
+void keyPressed(unsigned char, int, int);
+
+void changePVision(unsigned char key, struct View *v);
+
+void movePlayer(unsigned char key);
+
+void timer(int);
+
+void calculCosSin(struct View *v, struct Coordonnee *c);
+
+double calculAlpha(struct View *v);
+
+void playerInMap(int x, int y, struct PlayerMapPosition *p);
+
+double firstGridX(struct Coordonnee *c);
+
+double firstGridY(struct Coordonnee *c);
+
+void findGridX();
+
+void findGridY();
+
+void playerToGrid();
+
+const int WINDOW_WIDTH = 500;
+const int WINDOW_HEIGHT = 500;
+const double PLAYER_SPEED = 3;
+
+int heightMap = 5;
+int widthMap = 5;
+int cellSize = 100;
+
+int map[5][5] = {
+    {1, 1, 1, 1, 1},
+    {1, 0, 0, 0, 1},
+    {1, 0, 1, 0, 1},
+    {1, 0, 0, 0, 1},
+    {1, 1, 1, 1, 1}
+};
+
+struct Coordonnee player = {150, 150};
+
+struct Coordonnee gridPos = {0, 0};
+
+struct PlayerMapPosition posMap = {1, 1};
+
+struct View centralVision = {150, 0, 90, 0};
+
+struct View lVision = {100, 0, 90, 0};
+
+struct View rVision = {200, 0, 90, 0};
 
 struct Vecteur vecteurDirectionnel = {0, 0};
 
 int main(int argc, char *argv[]) {
-    calculAlpha();
+    calculCosSin(&centralVision, &player);
+    playerToGrid();
+    playerInMap(player.x, player.y, &posMap);
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
 
@@ -97,10 +122,10 @@ void displayMap(int map[5][5]) {
                 glColor3f(0, 0, 1);
             }
             glBegin(GL_QUADS);
-            glVertex2d(y * unite, i * unite);
-            glVertex2d(y * unite + unite, i * unite);
-            glVertex2d(y * unite + unite, i * unite + unite);
-            glVertex2d(y * unite, i * unite + unite);
+            glVertex2d(y * cellSize, i * cellSize);
+            glVertex2d(y * cellSize + cellSize, i * cellSize);
+            glVertex2d(y * cellSize + cellSize, i * cellSize + cellSize);
+            glVertex2d(y * cellSize, i * cellSize + cellSize);
             glEnd();
         }
     }
@@ -110,12 +135,12 @@ void displayGrid() {
     glColor3b(0, 0, 0);
     glBegin(GL_LINES);
     for (int i = 1; i < widthMap; i++) {
-        glVertex2d(i * unite, 0);
-        glVertex2d(i * unite, heightMap * unite);
+        glVertex2d(i * cellSize, 0);
+        glVertex2d(i * cellSize, heightMap * cellSize);
     }
     for (int i = 1; i < heightMap; i++) {
-        glVertex2d(0, i * unite);
-        glVertex2d(widthMap * unite, i * unite);
+        glVertex2d(0, i * cellSize);
+        glVertex2d(widthMap * cellSize, i * cellSize);
     }
     glEnd();
 }
@@ -124,15 +149,15 @@ void displayPlayer() {
     glPointSize(10);
     glColor3f(1, 1, 0);
     glBegin(GL_POINTS);
-    glVertex2d(joueur.x, joueur.y);
+    glVertex2d(player.x, player.y);
     glEnd();
 }
 
 void displayVision() {
     glColor3f(0, 0, 0);
     glBegin(GL_LINES);
-    glVertex2d(joueur.x, joueur.y);
-    glVertex2d(lVision.x, lVision.y);
+    glVertex2d(player.x, player.y);
+    glVertex2d(centralVision.x, centralVision.y);
     glEnd();
 }
 
@@ -163,17 +188,22 @@ void keyPressed(const unsigned char key, int x, int y) {
         case 'z':
         case 's':
             movePlayer(key);
+            firstGridX(&player);
             break;
         case 'q':
         case 'd':
-            changePVision(key);
+            changePVision(key, &centralVision);
+            changePVision(key, &rVision);
+            changePVision(key, &lVision);
+            firstGridX(&player);
             break;
         default:
+
+
+
     }
-    playerInMap(joueur.x, joueur.y);
+    playerInMap(player.x, player.y, &posMap);
     glutPostRedisplay();
-    printf("Joueur -> x: %f, y: %f\n", joueur.x, joueur.y);
-    printf("Position dans la carte -> x: %d, y: %d\n\n", posMap.x, posMap.y);
 }
 
 void timer(int) {
@@ -184,65 +214,100 @@ void timer(int) {
 //TODO
 void movePlayer(unsigned char key) {
     if (key == 'z') {
-        joueur.x += lVision.cosA * PLAYER_SPEED;
-        joueur.y += lVision.sinA * PLAYER_SPEED;
+        player.x += centralVision.cosA * PLAYER_SPEED;
+        player.y += centralVision.sinA * PLAYER_SPEED;
     } else {
-        joueur.x -= lVision.cosA * PLAYER_SPEED;
-        joueur.y -= lVision.sinA * PLAYER_SPEED;
+        player.x -= centralVision.cosA * PLAYER_SPEED;
+        player.y -= centralVision.sinA * PLAYER_SPEED;
     }
+    playerToGrid();
 }
 
-
-void changePVision(const unsigned char key) {
+void changePVision(unsigned char key, struct View *v) {
     if (key == 'd') {
-        if (lVision.y <= 0 && lVision.x < 500)
-            lVision.x += 20;
-        else if (lVision.y >= 500 && lVision.x > 0)
-            lVision.x -= 20;
-        else if (lVision.x >= 500 && lVision.y < 500)
-            lVision.y += 20;
-        else if (lVision.x <= 0 && lVision.y > 0)
-            lVision.y -= 20;
+        if (v->y <= 0 && v->x < 500)
+            v->x += 20;
+        else if (v->y >= 500 && v->x > 0)
+            v->x -= 20;
+        else if (v->x >= 500 && v->y < 500)
+            v->y += 20;
+        else if (v->x <= 0 && v->y > 0)
+            v->y -= 20;
     } else {
-        if (lVision.y == 0 && lVision.x > 0)
-            lVision.x -= 20;
-        else if (lVision.y == 500 && lVision.x < 500)
-            lVision.x += 20;
-        else if (lVision.x == 500 && lVision.y > 0)
-            lVision.y -= 20;
-        else if (lVision.x == 0 && lVision.y < 500)
-            lVision.y += 20;
+        if (v->y == 0 && v->x > 0)
+            v->x -= 20;
+        else if (v->y == 500 && v->x < 500)
+            v->x += 20;
+        else if (v->x == 500 && v->y > 0)
+            v->y -= 20;
+        else if (v->x == 0 && v->y < 500)
+            v->y += 20;
     }
-    if (lVision.x >= 500) {
-        lVision.x = 500;
+    if (v->x >= 500) {
+        v->x = 500;
     }
-    if (lVision.x <= 0) {
-        lVision.x = 0;
+    if (v->x <= 0) {
+        v->x = 0;
     }
-    if (lVision.y >= 500) {
-        lVision.y = 500;
+    if (v->y >= 500) {
+        v->y = 500;
     }
-    if (lVision.y <= 0) {
-        lVision.y = 0;
+    if (v->y <= 0) {
+        v->y = 0;
     }
-    calculAlpha();
+    calculCosSin(&centralVision, &player);
 }
 
-void calculAlpha() {
-    int vectorX = lVision.x - joueur.x;
-    int vectorY = lVision.y - joueur.y;
+void calculCosSin(struct View *v, struct Coordonnee *c) {
+    int vectorX = v->x - c->x;
+    int vectorY = v->y - c->y;
     float hypoLenght = sqrt(vectorX * vectorX + vectorY * vectorY);
     if (hypoLenght == 0)
         hypoLenght = 1;
-    lVision.cosA = vectorX / hypoLenght;
-    lVision.sinA = vectorY / hypoLenght;
+    v->cosA = vectorX / hypoLenght;
+    v->sinA = vectorY / hypoLenght;
 }
 
-void playerInMap(int x, int y) {
-    printf("posMap x = %d , posMapy = %d", posMap.x, posMap.y);
-    posMap.x = (x - (x % 100) + 1) / 100;
-    posMap.y = (y - (y % 100) + 1) / 100;
+double calculAlpha(struct View *v) {
+    return atan2(v->y, v->x);
+}
+
+void playerInMap(int x, int y, struct PlayerMapPosition *p) {
+    p->x = (x - (x % 100) + 1) / 100;
+    p->y = (y - (y % 100) + 1) / 100;
+}
+
+void playerToGrid() {
+    gridPos.x = player.x - (posMap.x * cellSize);
+    gridPos.y = player.y - (posMap.y * cellSize);
+}
+
+//TODO
+double firstGridX(struct Coordonnee *p) {
+    double yNext;
+    calculCosSin(&centralVision, &player);
+    double alpha = atan2(centralVision.sinA,centralVision.cosA);
+    printf("first alpha X = %f\n", alpha);
+    if (centralVision.cosA > 0)
+        yNext = (((p->x / cellSize) * cellSize + (cellSize) - p->x) * tan(alpha)) + p->y;
+    else
+        yNext = ((p->x / cellSize) * cellSize - (cellSize) - p->x * tan(alpha)) + p->y;
+    // printf("first Grid X = %f\n", yNext);
+    return yNext;
+}
+
+//TODO
+double firstGridY(struct Coordonnee *c) {
+    return NAN;
+}
+
+//TODO
+void findGridX() {
+}
+
+//TODO
+void findGridY() {
 }
 
 //TODO for 3D
-//gluLookAt(joueur.x,joueur.y,0,lVision.x,lVision.y,0,0,0,0);
+//gluLookAt(player.x,player.y,0,centralVision.x,centralVision.y,0,0,0,0);
