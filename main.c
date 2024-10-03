@@ -3,6 +3,7 @@
 #include <GL/glu.h>
 #include <GL/glut.h>
 #include <math.h>
+#include <stdbool.h>
 
 struct Coordonnee {
     double x;
@@ -38,7 +39,7 @@ void displayGrid();
 
 void displayPlayer();
 
-void keyPressed(unsigned char, int, int);
+void keyPressed(const unsigned char key);
 
 void changePVision(unsigned char key, struct View *v);
 
@@ -46,13 +47,9 @@ void movePlayer(unsigned char key);
 
 void timer(int);
 
-void calculCosSin(struct View *v, struct Coordonnee *c);
-
-double calculAlpha(struct View *v);
+void calculCosSin(struct View *v, const struct Coordonnee *c);
 
 void playerInMap(int x, int y, struct PlayerMapPosition *p);
-
-double firstGridX(struct Coordonnee *c);
 
 double firstGridY(struct Coordonnee *c);
 
@@ -60,7 +57,13 @@ void findGridX();
 
 void findGridY();
 
-void playerToGrid();
+double firstGridX(struct Coordonnee *p);
+
+double nearestGrid(double p);
+
+struct PlayerMapPosition playerToGrid(int x, int y);
+
+bool playerColision(int x, int y);
 
 const int WINDOW_WIDTH = 500;
 const int WINDOW_HEIGHT = 500;
@@ -90,12 +93,10 @@ struct View lVision = {100, 0, 90, 0};
 
 struct View rVision = {200, 0, 90, 0};
 
-struct Vecteur vecteurDirectionnel = {0, 0};
-
 int main(int argc, char *argv[]) {
     calculCosSin(&centralVision, &player);
-    playerToGrid();
-    playerInMap(player.x, player.y, &posMap);
+    playerInMap(player.x, player.y, &posMap); // NOLINT(*-narrowing-conversions)
+    playerToGrid(player.x, player.y); // NOLINT(*-narrowing-conversions)
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE);
 
@@ -183,12 +184,11 @@ void reshape(int w, int h) {
     glMatrixMode(GL_MODELVIEW);
 }
 
-void keyPressed(const unsigned char key, int x, int y) {
+void keyPressed(const unsigned char key) {
     switch (key) {
         case 'z':
         case 's':
             movePlayer(key);
-            firstGridX(&player);
             break;
         case 'q':
         case 'd':
@@ -200,9 +200,8 @@ void keyPressed(const unsigned char key, int x, int y) {
         default:
 
 
-
     }
-    playerInMap(player.x, player.y, &posMap);
+    playerInMap(player.x, player.y, &posMap); // NOLINT(*-narrowing-conversions)
     glutPostRedisplay();
 }
 
@@ -211,19 +210,33 @@ void timer(int) {
     glutTimerFunc(1000 / 60, timer, 0);
 }
 
-//TODO
-void movePlayer(unsigned char key) {
+void movePlayer(const unsigned char key) {
+    double newX = player.x;
+    double newY = player.y;
     if (key == 'z') {
-        player.x += centralVision.cosA * PLAYER_SPEED;
-        player.y += centralVision.sinA * PLAYER_SPEED;
-    } else {
-        player.x -= centralVision.cosA * PLAYER_SPEED;
-        player.y -= centralVision.sinA * PLAYER_SPEED;
+        newX += centralVision.cosA * PLAYER_SPEED;
+        newY += centralVision.sinA * PLAYER_SPEED;
+    } else if (key == 's'){
+        newX -= centralVision.cosA * PLAYER_SPEED;
+        newY -= centralVision.sinA * PLAYER_SPEED;
     }
-    playerToGrid();
+    if(!playerColision(newX,newY)) { // NOLINT(*-narrowing-conversions)
+        player.x = newX;
+        player.y = newY;
+    }
+    playerToGrid((int)player.x, (int)player.y);
+    firstGridX(&player);
 }
 
-void changePVision(unsigned char key, struct View *v) {
+bool playerColision(const int x, const int y) {
+    struct PlayerMapPosition pGrid = playerToGrid(x, y);
+    if (pGrid.x < 0 || pGrid.x >= heightMap || pGrid.y < 0 || pGrid.y >= widthMap) {
+        return false;
+    }
+    return map[pGrid.x][pGrid.y] == 1;
+}
+
+void changePVision(const unsigned char key, struct View *v) {
     if (key == 'd') {
         if (v->y <= 0 && v->x < 500)
             v->x += 20;
@@ -258,18 +271,14 @@ void changePVision(unsigned char key, struct View *v) {
     calculCosSin(&centralVision, &player);
 }
 
-void calculCosSin(struct View *v, struct Coordonnee *c) {
-    int vectorX = v->x - c->x;
-    int vectorY = v->y - c->y;
-    float hypoLenght = sqrt(vectorX * vectorX + vectorY * vectorY);
+void calculCosSin(struct View *v, const struct Coordonnee *c) {
+    const int vectorX = v->x - c->x; // NOLINT(*-narrowing-conversions)
+    const int vectorY = v->y - c->y; // NOLINT(*-narrowing-conversions)
+    float hypoLenght = sqrt(vectorX * vectorX + vectorY * vectorY); // NOLINT(*-narrowing-conversions)
     if (hypoLenght == 0)
         hypoLenght = 1;
-    v->cosA = vectorX / hypoLenght;
-    v->sinA = vectorY / hypoLenght;
-}
-
-double calculAlpha(struct View *v) {
-    return atan2(v->y, v->x);
+    v->cosA = vectorX / hypoLenght; // NOLINT(*-narrowing-conversions)
+    v->sinA = vectorY / hypoLenght; // NOLINT(*-narrowing-conversions)
 }
 
 void playerInMap(int x, int y, struct PlayerMapPosition *p) {
@@ -277,23 +286,31 @@ void playerInMap(int x, int y, struct PlayerMapPosition *p) {
     p->y = (y - (y % 100) + 1) / 100;
 }
 
-void playerToGrid() {
-    gridPos.x = player.x - (posMap.x * cellSize);
-    gridPos.y = player.y - (posMap.y * cellSize);
+struct PlayerMapPosition playerToGrid(int x, int y) {
+    struct PlayerMapPosition pos;
+    pos.x = (int)(y / cellSize);
+    pos.y = (int)(x / cellSize);
+    return pos;
 }
 
 //TODO
 double firstGridX(struct Coordonnee *p) {
-    double yNext;
-    calculCosSin(&centralVision, &player);
-    double alpha = atan2(centralVision.sinA,centralVision.cosA);
-    printf("first alpha X = %f\n", alpha);
-    if (centralVision.cosA > 0)
-        yNext = (((p->x / cellSize) * cellSize + (cellSize) - p->x) * tan(alpha)) + p->y;
-    else
-        yNext = ((p->x / cellSize) * cellSize - (cellSize) - p->x * tan(alpha)) + p->y;
-    // printf("first Grid X = %f\n", yNext);
-    return yNext;
+    nearestGrid(p->x);
+    printf("%f\n", nearestGrid(p->x)/tan(centralVision.cosA));
+    return false;
+}
+
+
+//TODO
+double nearestGrid(double p) {
+    int pInt = (int)p;
+    int nearestMultiple;
+    if (pInt % 100 < 50) {
+        nearestMultiple = pInt - (pInt % 100);
+    } else {
+        nearestMultiple = pInt + (100 - (pInt % 100));
+    }
+    return p - nearestMultiple;
 }
 
 //TODO
@@ -308,6 +325,7 @@ void findGridX() {
 //TODO
 void findGridY() {
 }
+
 
 //TODO for 3D
 //gluLookAt(player.x,player.y,0,centralVision.x,centralVision.y,0,0,0,0);
