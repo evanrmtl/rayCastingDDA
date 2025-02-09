@@ -27,6 +27,14 @@ struct PlayerMapPosition {
     int y;
 };
 
+struct RayHit {
+    double distance;
+    int mapX;
+    int mapY;
+    bool isVertical;
+};
+
+
 void display();
 
 void init();
@@ -51,15 +59,10 @@ void calculCosSin(struct View *v, const struct Coordonnee *c);
 
 void playerInMap(int x, int y, struct PlayerMapPosition *p);
 
-double firstGridY(struct Coordonnee *c);
 
-void findGridX();
+void findGridX(struct Coordonnee *p, struct View *v);
 
-void findGridY();
-
-double firstGridX(const struct Coordonnee *p);
-
-double nearestGrid(double p,  struct View vision);
+void findGridY(struct Coordonnee *p, struct View *v);
 
 struct PlayerMapPosition playerToGrid(int x, int y);
 
@@ -167,6 +170,7 @@ void display() {
     displayMap(map);
     displayGrid();
     displayPlayer();
+    findGridX(&player, &centralVision);
     displayVision();
     glutSwapBuffers();
     glFlush();
@@ -195,7 +199,6 @@ void keyPressed(const unsigned char key) {
             changePVision(key, &centralVision);
             changePVision(key, &rVision);
             changePVision(key, &lVision);
-            firstGridX(&player);
             break;
         default:
 
@@ -225,7 +228,6 @@ void movePlayer(const unsigned char key) {
         player.y = newY;
     }
     playerToGrid((int)player.x, (int)player.y);
-    firstGridX(&player);
 }
 
 bool playerColision(const int x, const int y) {
@@ -294,40 +296,118 @@ struct PlayerMapPosition playerToGrid(int x, int y) {
 }
 
 //TODO
-double firstGridX(const struct Coordonnee *p) {
-    nearestGrid(p->x, centralVision);
-    printf("%f\n", nearestGrid(p->x, centralVision)/tan(centralVision.cosA));
-    return false;
-}
+struct RayHit castRay(struct Coordonnee *p, struct View *v) {
+    double rayAngle = atan2(v->sinA, v->cosA);
+    double rayDirX = cos(rayAngle);
+    double rayDirY = sin(rayAngle);
 
+    // Position initiale dans la grille
+    int mapX = (int)(p->x / cellSize);
+    int mapY = (int)(p->y / cellSize);
 
-//TODO
-double nearestGrid(const double p, const struct View vision) {
-    int pInt = (int)p;
-    int nearestMultiple;
-    if(vision.sinA < 0) {
-        if (pInt % 100 < 50) {
-            nearestMultiple = pInt - (pInt % 100);
-        } else {
-            nearestMultiple = pInt + (100 - (pInt % 100));
-        }
+    // Calculer les deltas
+    double deltaDistX = fabs(1.0 / rayDirX) * cellSize;
+    double deltaDistY = fabs(1.0 / rayDirY) * cellSize;
+
+    // Direction des pas dans la grille
+    int stepX = (rayDirX > 0) ? 1 : -1;
+    int stepY = (rayDirY > 0) ? 1 : -1;
+
+    // Calculer la distance initiale jusqu'à la première ligne de grille
+    double sideDistX;
+    double sideDistY;
+
+    // Calculer la distance initiale en X
+    if (rayDirX > 0) {
+        sideDistX = (((mapX + 1) * cellSize) - p->x) / rayDirX;
     } else {
-
+        sideDistX = (p->x - (mapX * cellSize)) / -rayDirX;
     }
-    return p - nearestMultiple;
+
+    // Calculer la distance initiale en Y
+    if (rayDirY > 0) {
+        sideDistY = (((mapY + 1) * cellSize) - p->y) / rayDirY;
+    } else {
+        sideDistY = (p->y - (mapY * cellSize)) / -rayDirY;
+    }
+
+    bool hit = false;
+    bool side = false;  // true = vertical, false = horizontal
+    double distance = 0;
+
+    printf("\n=== DDA DEBUG ===\n");
+    printf("Position initiale: mapX=%d, mapY=%d\n", mapX, mapY);
+
+    // DDA Loop
+    while (!hit && mapX >= 0 && mapX < widthMap && mapY >= 0 && mapY < heightMap) {
+        // Avancer au prochain carré de la grille
+        if (sideDistX < sideDistY) {
+            distance = sideDistX;
+            sideDistX += deltaDistX;
+            mapX += stepX;
+            side = true;
+        } else {
+            distance = sideDistY;
+            sideDistY += deltaDistY;
+            mapY += stepY;
+            side = false;
+        }
+
+        printf("Vérification case: mapX=%d, mapY=%d\n", mapX, mapY);
+
+        // Vérifier si on a touché un mur
+        if (mapX >= 0 && mapX < widthMap && mapY >= 0 && mapY < heightMap) {
+            if (map[mapY][mapX] == 1) {
+                hit = true;
+                printf("Mur trouvé à: mapX=%d, mapY=%d\n", mapX, mapY);
+            }
+        }
+    }
+
+    struct RayHit result;
+    result.distance = distance;
+    result.mapX = mapX;
+    result.mapY = mapY;
+    result.isVertical = side;
+
+    printf("Distance finale: %.2f\n", distance);
+
+    return result;
 }
 
-//TODO
-double firstGridY(struct Coordonnee *c) {
-    return NAN;
+void findGridX(struct Coordonnee *p, struct View *v) {
+    struct RayHit hit = castRay(p, v);
+    if (hit.distance > 0) {
+        double rayAngle = atan2(v->sinA, v->cosA);
+        double endX = p->x + hit.distance * cos(rayAngle);
+        double endY = p->y + hit.distance * sin(rayAngle);
+
+        // Dessiner le rayon
+        glLineWidth(3.0);
+        glColor3f(0, 1, 0);
+        glBegin(GL_LINES);
+        glVertex2d(p->x, p->y);
+        glVertex2d(endX, endY);
+        glEnd();
+        glLineWidth(1.0);
+
+        // Dessiner le point d'impact
+        glPointSize(10.0);
+        glColor3f(0, 1, 0);
+        glBegin(GL_POINTS);
+        glVertex2d(endX, endY);
+        glEnd();
+        glPointSize(1.0);
+
+        printf("Ray: start=(%.2f, %.2f), end=(%.2f, %.2f)\n",
+               p->x, p->y, endX, endY);
+    }
 }
 
-//TODO
-void findGridX() {
-}
 
 //TODO
-void findGridY() {
+void findGridY(struct Coordonnee *p, struct View *v) {
+    findGridX(p, v);
 }
 
 
