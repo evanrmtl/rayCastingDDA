@@ -19,8 +19,8 @@
 		"files" : 
 		[
 			"CMakeLists.txt",
-			"/snap/clion/296/bin/cmake/linux/x64/share/cmake-3.29/Modules/FindOpenGL.cmake",
-			"/snap/clion/296/bin/cmake/linux/x64/share/cmake-3.29/Modules/FindGLUT.cmake"
+			"/snap/clion/314/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindOpenGL.cmake",
+			"/snap/clion/314/bin/cmake/linux/x64/share/cmake-3.30/Modules/FindGLUT.cmake"
 		],
 		"nodes" : 
 		[

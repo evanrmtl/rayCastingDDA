@@ -34,7 +34,7 @@
 					]
 				},
 				"path" : "/bin/gcc",
-				"version" : "13.2.0"
+				"version" : "13.3.0"
 			},
 			"language" : "C",
 			"sourceFileExtensions" : 

@@ -57,9 +57,9 @@ void findGridX();
 
 void findGridY();
 
-double firstGridX(struct Coordonnee *p);
+double firstGridX(const struct Coordonnee *p);
 
-double nearestGrid(double p);
+double nearestGrid(double p,  struct View vision);
 
 struct PlayerMapPosition playerToGrid(int x, int y);
 
@@ -294,21 +294,25 @@ struct PlayerMapPosition playerToGrid(int x, int y) {
 }
 
 //TODO
-double firstGridX(struct Coordonnee *p) {
-    nearestGrid(p->x);
-    printf("%f\n", nearestGrid(p->x)/tan(centralVision.cosA));
+double firstGridX(const struct Coordonnee *p) {
+    nearestGrid(p->x, centralVision);
+    printf("%f\n", nearestGrid(p->x, centralVision)/tan(centralVision.cosA));
     return false;
 }
 
 
 //TODO
-double nearestGrid(double p) {
+double nearestGrid(const double p, const struct View vision) {
     int pInt = (int)p;
     int nearestMultiple;
-    if (pInt % 100 < 50) {
-        nearestMultiple = pInt - (pInt % 100);
+    if(vision.sinA < 0) {
+        if (pInt % 100 < 50) {
+            nearestMultiple = pInt - (pInt % 100);
+        } else {
+            nearestMultiple = pInt + (100 - (pInt % 100));
+        }
     } else {
-        nearestMultiple = pInt + (100 - (pInt % 100));
+
     }
     return p - nearestMultiple;
 }
